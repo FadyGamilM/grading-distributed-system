@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	stdlog "log"
 	"net/http"
 	"os"
@@ -40,37 +41,37 @@ func Run(destination string) {
 }
 
 type reqBody struct {
-	msg string `json:"msg"`
+	Msg string `json:"msg"`
 }
 
 // register the routers
 func RegisterHandlers() *gin.Engine {
 	r := gin.Default()
 	r.POST("/log", func(c *gin.Context) {
-		var requestData *reqBody
+		var requestData reqBody
 		// deserialize the body request
-		if err := c.ShouldBindJSON(requestData); err != nil {
+		if err := c.ShouldBindJSON(&requestData); err != nil {
 			c.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"error": "bad request",
+					"error": fmt.Sprintf("bad request | couldn't parse json request body : %v\n", err),
 				},
 			)
 			return
 		}
 
 		// if the content of the log message is empty , we should return bad request response
-		if len(requestData.msg) == 0 {
+		if len(requestData.Msg) == 0 {
 			c.JSON(
 				http.StatusBadRequest,
 				gin.H{
-					"error": "bad request",
+					"error": "bad request | empty request body",
 				},
 			)
 			return
 		}
 		// we process the request by logging it to our log-file (current database)
-		Log(string(requestData.msg))
+		Log(string(requestData.Msg))
 
 		// return the router to be the handler of the logger service
 	})
