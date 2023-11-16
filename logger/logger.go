@@ -1,10 +1,11 @@
 package logger
 
 import (
-	"io/ioutil"
 	stdlog "log"
 	"net/http"
 	"os"
+
+	"github.com/gin-gonic/gin"
 )
 
 var log *stdlog.Logger
@@ -38,18 +39,42 @@ func Run(destination string) {
 	log = stdlog.New(logFile(destination), "", stdlog.LstdFlags)
 }
 
+type reqBody struct {
+	msg string `json:"msg"`
+}
+
 // register the routers
-func RegisterHandlers() {
-	http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
-		msg, err := ioutil.ReadAll(r.Body)
-		// if there is any error or the content of the log message is empty , we should return bad request response
-		if err != nil || len(msg) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
+func RegisterHandlers() *gin.Engine {
+	r := gin.Default()
+	r.POST("/log", func(c *gin.Context) {
+		var requestData *reqBody
+		// deserialize the body request
+		if err := c.ShouldBindJSON(requestData); err != nil {
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": "bad request",
+				},
+			)
+			return
+		}
+
+		// if the content of the log message is empty , we should return bad request response
+		if len(requestData.msg) == 0 {
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": "bad request",
+				},
+			)
 			return
 		}
 		// we process the request by logging it to our log-file (current database)
-		Log(string(msg))
+		Log(string(requestData.msg))
+
+		// return the router to be the handler of the logger service
 	})
+	return r
 }
 
 func Log(msg string) {
